@@ -1,0 +1,91 @@
+---
+- name: Despliegue de aplicación con ansible
+  hosts: all
+  become: true
+  vars_files:
+    - vars/default.yml
+
+  tasks:
+    - name: Instlación de prerrequisitos
+      apt: name={{ item }} update_cache=yes state=latest force_apt_get=yes
+      loop: [ 'aptitude' ]
+
+    - name: Instalar servicios
+      apt: name={{ item }} update_cache=yes state=latest
+      loop: [ 'apache2', 'mysql-server', 'python3-pymysql', 'php', 'php-mysql', 'libapache2-mod-php' ]
+
+    - name: Crear la ruta de despliegue
+      file:
+        path: "/var/www/{{ http_host }}"
+        state: directory
+        owner: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Configurar virtual host de apache
+      template:
+        src: "files/apache.conf.j2"
+        dest: "/etc/apache2/sites-available/{{ http_conf }}"
+      notify: Reload Apache
+
+    - name: Establcecer el sitio web
+      shell: /usr/sbin/a2ensite {{ http_conf }}
+      notify: Reload Apache
+
+    - name: Deshabilitar el sitio de apache por default
+      shell: /usr/sbin/a2dissite 000-default.conf
+      when: disable_default
+      notify: Reload Apache
+
+    - name: Establecer la contraseña de mysql
+      mysql_user:
+        login_user: root
+        login_password: " "
+        name: root
+        password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: Remover los usuarios anónimos de mysql
+      mysql_user:
+        name: ''
+        host_all: yes
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Remover la base de datos test
+      mysql_db:
+        name: test
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+    
+    - name: Crear la base de datos
+      mysql_db: name=alumnos state=present login_user=root login_password=" "
+
+    - name: Copiar el archivo de esquema y datos de la base de datos
+      copy: src=files/db.sql dest=/tmp/db.sql
+
+    - name: Ejecutar script de la base de datos
+      mysql_db: name=alumnos state=import target=/tmp/db.sql login_user=root login_password=" "
+      
+    - name: "UFW - Permitir http en el puerto {{ http_port }}"
+      ufw:
+        rule: allow
+        port: "{{ http_port }}"
+        proto: tcp
+
+    - name: Clonar el repositorio de github
+      git:
+        repo: 'https://github.com/mlvarama/Alumnos.git'
+        dest: /var/www/{{ http_host }}
+
+  handlers:
+    - name: Reload Apache
+      service:
+        name: apache2
+        state: reloaded
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted

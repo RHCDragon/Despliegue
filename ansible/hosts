@@ -1,0 +1,5 @@
+[servers]
+server1 ansible_host=192.168.100.24
+
+[all:vars]
+ansible_sudo_pass=9909

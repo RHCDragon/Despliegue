@@ -1,0 +1,6 @@
+mysql_root_password: " "
+app_user: "adjsa"
+http_host: "adjsanch.com"
+http_conf: "adjsanch.com.conf"
+http_port: "80"
+disable_default: true
