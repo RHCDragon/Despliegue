@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: icecreams-api
+  labels:
+    app: icecreams-api-front
+spec:
+  selector:
+    matchLabels:
+      app: icecreams-api-front
+      tier: icecreams-api
+  replicas: 7
+  template:
+    metadata:
+      labels:
+        app: icecreams-api-front
+        tier: icecreams-api
+    spec:
+      containers:
+        - name: icecreams-api
+          image: asanchez/reticula:1.0
+          ports:
+            - containerPort: 8080
